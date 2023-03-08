@@ -6,15 +6,19 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "standard && node app.js"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed": "node models/seeds/restaurantSeeder.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "body-parser": "^1.20.1",
     "express": "^4.18.2",
-    "express-handlebars": "^6.0.6"
+    "express-handlebars": "^6.0.6",
+    "mongoose": "^6.7.3"
   },
   "devDependencies": {
+    "dotenv": "^16.0.3",
     "standard": "^17.0.0"
   }
 }
