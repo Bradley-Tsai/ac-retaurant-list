@@ -38,6 +38,11 @@
             <button class="btn btn-major" type="submit" id="search-button"><i
                 class="fas fa-search"
               ></i></button>
+            <a
+              href="/restaurants/new"
+              class="btn btn-secondary"
+              role="button"
+            ><i class="fas fa-plus"></i></a>
           </div>
         </div>
       </form>
@@ -51,28 +56,53 @@
     <div class="col-md-10 col-12 mx-auto">
       <div class="row row-cols-sm-3">
         {{#each restaurants}}
-          <a href="/restaurants/{{this.id}}" class="text-secondary">
-            <div class="card mb-3">
-              <img
-                class="card-img-top"
-                src="{{this.image}}"
-                alt="{{this.name}}"
-              />
-              <div class="card-body p-3">
-                <h6 class="card-title mb-1">{{this.name}}</h6>
+          <div class="card-container mb-4">
+            <a href="/restaurants/{{this.id}}" class="text-secondary">
+              <div class="card mb-1">
+                <img
+                  href="/restaurants/{{this.id}}"
+                  class="card-img-top"
+                  src="{{this.image}}"
+                  alt="{{this.name}}"
+                />
+                <div class="card-body p-3 text-secondary">
+                  <h6 class="card-title mb-1">{{this.name}}</h6>
 
-                <div class="restaurant-category mb-1">
-                  <i class="fas fa-utensils pr-2"></i>
-                  {{this.category}}
+                  <div class="restaurant-category mb-1">
+                    <i class="fas fa-utensils pr-2"></i>
+                    {{this.category}}
+                  </div>
+
+                  <span
+                    class="badge badge-pill badge-danger font-weight-normal"
+                  >
+                    {{this.rating}}
+                    <i class="fas fa-star fa-xs"></i>
+                  </span>
                 </div>
-
-                <span class="badge badge-pill badge-danger font-weight-normal">
-                  {{this.rating}}
-                  <i class="fas fa-star fa-xs"></i>
-                </span>
               </div>
+            </a>
+            <div class="card-actions d-flex justify-content-end">
+              <a
+                href="/restaurants/{{this.id}}/edit"
+                class="card-action p-1"
+              >Edit</a>
+              <a
+                href="/restaurants/{{this.id}}"
+                class="card-action p-1"
+              >Detail</a>
+              <form
+                action="/restaurants/{{this.id}}/delete"
+                method="POST"
+                style="display: inline;"
+              >
+                <button
+                  type="submit"
+                  class="card-action btn btn-secondary p-1"
+                >Delete</button>
+              </form>
             </div>
-          </a>
+          </div>
         {{/each}}
       </div>
     </div>
