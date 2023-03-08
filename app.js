@@ -1,20 +1,66 @@
+// Libraries
 const express = require("express");
+const mongoose = require("mongoose");
 const exphbs = require("express-handlebars");
-const restaurantsList = require("./restaurant.json");
+const bodyParser = require("body-parser");
+
+// Custom functions
+const common = require("./common");
+
+// MVC imports
+const Restaurant = require("./models/restaurant");
+
+// App parameters
 const app = express();
 const port = 3000;
 
-// 設定模板引擎
+// Database connection
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+
+db.on("error", () => {
+  console.log("mongodb connection error");
+});
+
+db.once("open", () => {
+  console.log("mongodb connected");
+});
+
+// Common variables
+const columnNames = {
+  name: "餐廳名稱",
+  name_en: "餐廳名稱(英文)",
+  category: "餐廳類別",
+  image: "照片連結",
+  location: "地點",
+  phone: "電話",
+  google_map: "Google地圖連結",
+  rating: "評分",
+  description: "簡介",
+};
+
+// App settings
 app.engine("handlebars", exphbs.engine({ defaultLayout: "main" }));
 app.set("view engine", "handlebars");
 
-// 設定靜態檔案
 app.use(express.static("public"));
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// 設定路由
+// Routes
 // 1. 首頁
 app.get("/", (req, res) => {
-  res.render("index", { restaurants: restaurantsList.results });
+  Restaurant.find()
+    .lean()
+    .then((restaurants) => res.render("index", { restaurants }))
+    .catch((error) => console.error(error));
 });
 
 // 2. 搜尋頁面
@@ -26,34 +72,106 @@ app.get("/search", (req, res) => {
     return res.redirect("/");
   }
 
-  // 處理關鍵字
+  // 關鍵字字串處理
   const reg = /\s+/;
   const keywordsLowerCase = keywords
     .split(reg)
     .map((keyword) => keyword.toLowerCase());
 
   // 以 餐廳名稱 & 餐廳分類 比對搜尋關鍵字
-  res.render("index", {
-    restaurants: restaurantsList.results.filter((restaurant) =>
-      keywordsLowerCase.some(
-        (kw) =>
-          (restaurant.name.toLowerCase().includes(kw) ||
-            restaurant.category.toLowerCase().includes(kw)) &&
-          kw !== ""
-      )
-    ),
-    keywords,
-  });
+  Restaurant.find({
+    $or: [
+      {
+        name: {
+          $in: keywordsLowerCase.map((keyword) => new RegExp(keyword, "i")),
+        },
+      },
+      {
+        category: {
+          $in: keywordsLowerCase.map((keyword) => new RegExp(keyword, "i")),
+        },
+      },
+    ],
+  })
+    .lean()
+    .then((restaurants) => res.render("index", { restaurants }))
+    .catch((error) => console.error(error));
 });
 
-// 3. 單一餐廳頁面
+// 3. 新增餐廳頁面
+app.get("/restaurants/new", (req, res) => {
+  let forms = "";
+  for (const [key, value] of Object.entries(columnNames)) {
+    forms += common.getFormHtml(key, value, "");
+  }
+  res.render("new", { forms });
+});
+
+// 4. 新增單一餐廳
+app.post("/restaurants", (req, res) => {
+  Restaurant.findOne()
+    .select("id")
+    .sort("-id")
+    .lean()
+    .then((maxIdObj) => {
+      const id = maxIdObj.id + 1;
+
+      // ORM新增餐廳資料
+      // todo: 這層應該要做更多的輸入驗證, 時間因素暫不處理
+      Restaurant.create({
+        id: id,
+        name: req.body.name,
+        name_en: req.body.name_en,
+        category: req.body.category,
+        image: req.body.image,
+        location: req.body.location,
+        phone: req.body.phone,
+        google_map: req.body.google_map,
+        rating:
+          !isNaN(req.body.rating.trim()) && req.body.rating.trim().length > 0
+            ? parseFloat(req.body.rating)
+            : 0.0,
+        description: req.body.description,
+      });
+    })
+    .then(() => res.redirect("/"))
+    .catch((error) => console.log(error));
+});
+
+// 5. 取得單一餐廳頁面
 app.get("/restaurants/:restaurant_id", (req, res) => {
-  res.render("show", {
-    restaurant: restaurantsList.results.find(
-      (restaurant) =>
-        restaurant.id.toString() === req.params.restaurant_id.toString()
-    ),
-  });
+  Restaurant.findOne({ id: req.params.restaurant_id })
+    .lean()
+    .then((restaurant) => res.render("show", { restaurant }))
+    .catch((error) => {
+      console.log(error);
+    });
+});
+
+// 5. 編輯餐廳頁面 todo
+app.get("/restaurants/:restaurant_id/edit", (req, res) => {
+  Restaurant.findOne({ id: req.params.restaurant_id })
+    .lean()
+    .then((restaurant) => {
+      let forms = "";
+
+      for (const [key, value] of Object.entries(columnNames)) {
+        forms += common.getFormHtml(key, value, restaurant[key]);
+      }
+
+      res.render("new", { forms });
+    })
+    .catch((error) => {
+      console.log(error);
+    });
+});
+
+// 6. 刪除單一餐廳
+app.post("/restaurants/:restaurant_id/delete", (req, res) => {
+  Restaurant.findOne({ id: req.params.restaurant_id })
+    .then((restaurant) => restaurant.remove())
+    .then(() => res.redirect("/"))
+    .catch((error) => console.log(error));
 });
 
 // 服務器監聽
