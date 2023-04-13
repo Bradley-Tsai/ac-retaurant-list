@@ -35,16 +35,43 @@ db.once("open", () => {
 });
 
 // Common variables
-const columnNames = {
-  name: "餐廳名稱",
-  name_en: "餐廳名稱(英文)",
-  category: "餐廳類別",
-  image: "照片連結",
-  location: "地點",
-  phone: "電話",
-  google_map: "Google地圖連結",
-  rating: "評分",
-  description: "簡介",
+const columnInputSettings = {
+  name: {
+    title: "餐廳名稱",
+    type: "text",
+  },
+  name_en: {
+    title: "餐廳名稱(英文)",
+    type: "text",
+  },
+  category: {
+    title: "餐廳類別",
+    type: "text",
+  },
+  image: {
+    title: "照片連結",
+    type: "url",
+  },
+  location: {
+    title: "地點",
+    type: "text",
+  },
+  phone: {
+    title: "電話",
+    type: "tel",
+  },
+  google_map: {
+    title: "Google地圖連結",
+    type: "url",
+  },
+  rating: {
+    title: "評分",
+    type: "number",
+  },
+  description: {
+    title: "簡介",
+    type: "text",
+  },
 };
 
 // App settings
@@ -100,11 +127,13 @@ app.get("/search", (req, res) => {
 
 // 3. 新增餐廳頁面
 app.get("/restaurants/new", (req, res) => {
+  const endpoint = "/restaurants";
+  const method = "POST";
   let forms = "";
-  for (const [key, value] of Object.entries(columnNames)) {
-    forms += common.getFormHtml(key, value, "");
+  for (const [key, setting] of Object.entries(columnInputSettings)) {
+    forms += common.getInputHtml(key, setting.title, setting.type);
   }
-  res.render("new", { forms });
+  res.render("new", { endpoint, method, forms });
 });
 
 // 4. 新增單一餐廳
@@ -117,7 +146,6 @@ app.post("/restaurants", (req, res) => {
       const id = maxIdObj.id + 1;
 
       // ORM新增餐廳資料
-      // todo: 這層應該要做更多的輸入驗證, 時間因素暫不處理
       Restaurant.create({
         id: id,
         name: req.body.name,
@@ -148,22 +176,52 @@ app.get("/restaurants/:restaurant_id", (req, res) => {
     });
 });
 
-// 5. 編輯餐廳頁面 todo
+// 5. 取得編輯餐廳頁面
 app.get("/restaurants/:restaurant_id/edit", (req, res) => {
   Restaurant.findOne({ id: req.params.restaurant_id })
     .lean()
     .then((restaurant) => {
+      const endpoint = `/restaurants/${restaurant.id}/edit`;
+      const method = "POST";
       let forms = "";
 
-      for (const [key, value] of Object.entries(columnNames)) {
-        forms += common.getFormHtml(key, value, restaurant[key]);
+      for (const [key, setting] of Object.entries(columnInputSettings)) {
+        forms += common.getInputHtml(
+          key,
+          setting.title,
+          setting.type,
+          restaurant[key]
+        );
       }
 
-      res.render("new", { forms });
+      res.render("new", { endpoint, method, forms });
     })
     .catch((error) => {
       console.log(error);
     });
+});
+
+// 6. 更新編輯餐廳資訊
+app.post("/restaurants/:restaurant_id/edit", (req, res) => {
+  Restaurant.findOne({ id: req.params.restaurant_id })
+    .then((restaurant) => {
+      restaurant.name = req.body.name;
+      restaurant.name_en = req.body.name_en;
+      restaurant.category = req.body.category;
+      restaurant.image = req.body.image;
+      restaurant.location = req.body.location;
+      restaurant.phone = req.body.phone;
+      restaurant.google_map = req.body.google_map;
+      restaurant.rating =
+        !isNaN(req.body.rating.trim()) && req.body.rating.trim().length > 0
+          ? parseFloat(req.body.rating)
+          : 0.0;
+      restaurant.description = req.body.description;
+
+      restaurant.save();
+    })
+    .then(() => res.redirect(`/restaurants/${req.params.restaurant_id}`))
+    .catch((error) => console.log(error));
 });
 
 // 6. 刪除單一餐廳
